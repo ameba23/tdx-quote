@@ -140,6 +140,24 @@ impl Quote {
         )?;
         Ok(())
     }
+
+    /// Return the pem-encoded PCK cert chain if present
+    /// Parsing the certificates themselves is outside of the scope of this crate
+    pub fn pck_cert_chain(&self) -> Option<Vec<u8>> {
+        match &self.certification_data {
+            CertificationData::PckCertChain(cert_chain) => Some(cert_chain.clone()),
+            CertificationData::QeReportCertificationData(qe_report_certification_data) => {
+                if let CertificationDataInner::PckCertChain(cert_chain) =
+                    &qe_report_certification_data.certification_data
+                {
+                    Some(cert_chain.clone())
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        }
+    }
 }
 
 /// Type of TEE used
@@ -284,6 +302,34 @@ impl CertificationData {
     }
 }
 
+/// Inner Data related to certifying the QE report
+/// This is needed to avoid a recursive type
+#[non_exhaustive]
+#[derive(Debug, PartialEq, Eq, Clone)]
+#[repr(i16)]
+pub enum CertificationDataInner {
+    PckIdPpidPlainCpusvnPcesvn(Vec<u8>) = 1,
+    PckIdPpidRSA2048CpusvnPcesvn(Vec<u8>) = 2,
+    PckIdPpidRSA3072CpusvnPcesvn(Vec<u8>) = 3,
+    PckLeafCert(Vec<u8>) = 4,
+    PckCertChain(Vec<u8>) = 5,
+    PlatformManifest(Vec<u8>) = 7,
+}
+
+impl CertificationDataInner {
+    pub fn new(certification_data_type: i16, data: Vec<u8>) -> Result<Self, QuoteParseError> {
+        match certification_data_type {
+            1 => Ok(Self::PckIdPpidPlainCpusvnPcesvn(data)),
+            2 => Ok(Self::PckIdPpidRSA2048CpusvnPcesvn(data)),
+            3 => Ok(Self::PckIdPpidRSA3072CpusvnPcesvn(data)),
+            4 => Ok(Self::PckLeafCert(data)),
+            5 => Ok(Self::PckCertChain(data)),
+            7 => Ok(Self::PlatformManifest(data)),
+            _ => Err(QuoteParseError::UnknownCertificationDataType),
+        }
+    }
+}
+
 /// Certification data which contains a signature from the PCK
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct QeReportCertificationData {
@@ -294,7 +340,7 @@ pub struct QeReportCertificationData {
     /// Authentication data used by the quoting enclave to provide additional context
     pub qe_authentication_data: Vec<u8>,
     /// Data required to verify the QE report signature
-    pub certification_data: Vec<u8>,
+    pub certification_data: CertificationDataInner,
 }
 
 impl QeReportCertificationData {
@@ -310,8 +356,15 @@ impl QeReportCertificationData {
         let signature = Signature::from_bytes((&signature).into())?;
         let (input, qe_authentication_data_size) = le_i16(input)?;
         let qe_authentication_data_size: usize = qe_authentication_data_size.try_into()?;
-        let (certification_data, qe_authentication_data) =
-            take(qe_authentication_data_size)(input)?;
+        let (input, qe_authentication_data) = take(qe_authentication_data_size)(input)?;
+
+        // Certification Data
+        let (input, certification_data_type) = le_i16(input)?;
+        let (input, certification_dat_len) = le_i32(input)?;
+        let certification_dat_len: usize = certification_dat_len.try_into()?;
+        let (_input, certification_data) = take(certification_dat_len)(input)?;
+        let certification_data =
+            CertificationDataInner::new(certification_data_type, certification_data.to_vec())?;
 
         // Check the hash in the qe_report
         let hash = {
@@ -328,7 +381,7 @@ impl QeReportCertificationData {
             qe_report,
             signature,
             qe_authentication_data: qe_authentication_data.to_vec(),
-            certification_data: certification_data.to_vec(),
+            certification_data,
         })
     }
 }
