@@ -324,6 +324,7 @@ impl CertificationDataInner {
             3 => Ok(Self::PckIdPpidRSA3072CpusvnPcesvn(data)),
             4 => Ok(Self::PckLeafCert(data)),
             5 => Ok(Self::PckCertChain(data)),
+            // No 6 because that would be a recursive type
             7 => Ok(Self::PlatformManifest(data)),
             _ => Err(QuoteParseError::UnknownCertificationDataType),
         }

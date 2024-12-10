@@ -50,6 +50,7 @@ fn test_create_mock_quote() {
         attestation_key.clone(),
         provisioning_certification_key.clone(),
         [0; 64],
+        b"Mock cert chain".to_vec(),
     );
     assert_eq!(quote.attestation_key, VerifyingKey::from(attestation_key));
     quote
