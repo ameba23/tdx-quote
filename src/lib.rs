@@ -20,6 +20,9 @@ mod error;
 mod mock;
 mod take_n;
 
+#[cfg(feature = "x509")]
+pub mod pck;
+
 pub use error::QuoteParseError;
 use error::{QuoteVerificationError, VerifyingKeyError};
 use p256::EncodedPoint;
