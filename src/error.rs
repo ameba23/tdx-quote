@@ -56,11 +56,41 @@ impl From<TryFromIntError> for QuoteParseError {
 pub enum QuoteVerificationError {
     NoQeReportCertificationData,
     BadSignature,
+    NoPckCertChain,
+    #[cfg(feature = "pck")]
+    PckParseVerify(crate::pck::PckParseVerifyError),
+}
+
+impl Display for QuoteVerificationError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            QuoteVerificationError::NoQeReportCertificationData => {
+                f.write_str("Quote has no QE report certification data")
+            }
+            QuoteVerificationError::BadSignature => {
+                f.write_str("Quote signature verification failed")
+            }
+            QuoteVerificationError::NoPckCertChain => {
+                f.write_str("Quote has no PCK certificate chain")
+            }
+            #[cfg(feature = "pck")]
+            QuoteVerificationError::PckParseVerify(error) => {
+                write!(f, "PCK certificate: {error}")
+            }
+        }
+    }
 }
 
 impl From<p256::ecdsa::Error> for QuoteVerificationError {
     fn from(_: p256::ecdsa::Error) -> QuoteVerificationError {
         QuoteVerificationError::BadSignature
+    }
+}
+
+#[cfg(feature = "pck")]
+impl From<crate::pck::PckParseVerifyError> for QuoteVerificationError {
+    fn from(error: crate::pck::PckParseVerifyError) -> QuoteVerificationError {
+        QuoteVerificationError::PckParseVerify(error)
     }
 }
 

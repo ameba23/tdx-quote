@@ -19,7 +19,7 @@ fn test_parse() {
         let quote = Quote::from_bytes(&input).unwrap();
 
         // Check we can get the PCK certificate chain
-        assert!(quote.pck_cert_chain().is_some());
+        assert!(quote.pck_cert_chain().is_ok());
 
         // We currently don't have any v5 quotes to test with
         assert_eq!(quote.header.version, 4);
@@ -64,19 +64,12 @@ fn test_create_mock_quote() {
 #[cfg(feature = "pck")]
 #[test]
 fn test_parse_pck() {
-    use tdx_quote::pck::verify_pck_certificate_chain_pem;
-
     for entry in fs::read_dir("tests/test-quotes").unwrap() {
         let entry = entry.unwrap();
         let mut file = fs::File::open(entry.path()).unwrap();
         let mut input = Vec::new();
         file.read_to_end(&mut input).unwrap();
         let quote = Quote::from_bytes(&input).unwrap();
-
-        let cert_chain_pem = quote.pck_cert_chain().unwrap();
-        let pck = verify_pck_certificate_chain_pem(cert_chain_pem).unwrap();
-
-        // let pck = VerifyingKey::from_sec1_bytes(&KNOWN_PCK).unwrap();
-        quote.verify_with_pck(pck).unwrap();
+        let _pck = quote.verify().unwrap();
     }
 }

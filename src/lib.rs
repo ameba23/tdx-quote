@@ -148,20 +148,30 @@ impl Quote {
 
     /// Return the pem-encoded PCK cert chain if present
     /// Parsing the certificates themselves is outside of the scope of this crate
-    pub fn pck_cert_chain(&self) -> Option<Vec<u8>> {
+    pub fn pck_cert_chain(&self) -> Result<Vec<u8>, QuoteVerificationError> {
         match &self.certification_data {
-            CertificationData::PckCertChain(cert_chain) => Some(cert_chain.clone()),
+            CertificationData::PckCertChain(cert_chain) => Ok(cert_chain.clone()),
             CertificationData::QeReportCertificationData(qe_report_certification_data) => {
                 if let CertificationDataInner::PckCertChain(cert_chain) =
                     &qe_report_certification_data.certification_data
                 {
-                    Some(cert_chain.clone())
+                    Ok(cert_chain.clone())
                 } else {
-                    None
+                    Err(QuoteVerificationError::NoPckCertChain)
                 }
             }
-            _ => None,
+            _ => Err(QuoteVerificationError::NoPckCertChain),
         }
+    }
+
+    /// Verify the quote using the embedded PCK certificate chain, and if successful return the PCK
+    #[cfg(feature = "pck")]
+    pub fn verify(&self) -> Result<VerifyingKey, QuoteVerificationError> {
+        let cert_chain = self.pck_cert_chain()?;
+        let pck = pck::verify_pck_certificate_chain_pem(cert_chain)?;
+
+        self.verify_with_pck(pck)?;
+        Ok(pck)
     }
 }
 
