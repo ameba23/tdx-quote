@@ -2,8 +2,8 @@
 #![cfg(feature = "mock")]
 
 use crate::{
-    AttestionKeyType, CertificationData, QeReportCertificationData, Quote, QuoteBody, QuoteHeader,
-    TDXVersion, TEEType, QUOTE_HEADER_LENGTH, V4_QUOTE_BODY_LENGTH,
+    AttestionKeyType, CertificationData, CertificationDataInner, QeReportCertificationData, Quote,
+    QuoteBody, QuoteHeader, TDXVersion, TEEType, QUOTE_HEADER_LENGTH, V4_QUOTE_BODY_LENGTH,
 };
 use alloc::vec::Vec;
 use p256::ecdsa::{signature::SignerMut, SigningKey, VerifyingKey};
@@ -19,6 +19,7 @@ impl Quote {
         mut attestation_key: SigningKey,
         mut provisioning_certification_key: SigningKey,
         reportdata: [u8; 64],
+        pck_cert_chain: Vec<u8>,
     ) -> Self {
         let header = QuoteHeader {
             version: 4,
@@ -73,7 +74,7 @@ impl Quote {
             qe_report,
             signature: provisioning_certification_key.sign(&qe_report),
             qe_authentication_data,
-            certification_data: Default::default(),
+            certification_data: CertificationDataInner::PckCertChain(pck_cert_chain),
         };
 
         Quote {
@@ -87,8 +88,8 @@ impl Quote {
         }
     }
 
-    pub fn as_bytes(&self) -> [u8; V4_MOCK_QUOTE_LENGTH + 384 + 64 + 2] {
-        let mut output = [1; V4_MOCK_QUOTE_LENGTH + 384 + 64 + 2];
+    pub fn as_bytes(&self) -> Vec<u8> {
+        let mut output = [1; V4_MOCK_QUOTE_LENGTH];
         let header = quote_header_serializer(&self.header);
         output[..48].copy_from_slice(&header);
 
@@ -112,13 +113,15 @@ impl Quote {
         let certification_data_type = certification_data_type.to_le_bytes();
         output[764..766].copy_from_slice(&certification_data_type);
 
-        let certification_data = certification_data_serializer(&self.certification_data);
+        let mut certification_data = certification_data_serializer(&self.certification_data);
         let certification_data_len: i32 = certification_data.len().try_into().unwrap();
         let certification_data_len = certification_data_len.to_le_bytes();
         output[766..770].copy_from_slice(&certification_data_len);
 
-        output[770..].copy_from_slice(&certification_data);
-        output
+        let mut output_vec = output.to_vec();
+
+        output_vec.append(&mut certification_data);
+        output_vec
     }
 }
 
@@ -126,7 +129,7 @@ impl Quote {
 fn certification_data_serializer(input: &CertificationData) -> Vec<u8> {
     match input {
         CertificationData::QeReportCertificationData(qe_report_certification_data) => {
-            let mut output = [0u8; 384 + 64 + 2];
+            let mut output = [0u8; 384 + 64 + 2 + 2 + 4];
             output[..384].copy_from_slice(&qe_report_certification_data.qe_report);
             let signature = qe_report_certification_data.signature.to_bytes();
             output[384..384 + 64].copy_from_slice(&signature);
@@ -134,7 +137,27 @@ fn certification_data_serializer(input: &CertificationData) -> Vec<u8> {
             let qe_authentication_data_length = 0i16;
             let qe_authentication_data_length = qe_authentication_data_length.to_le_bytes();
             output[384 + 64..384 + 64 + 2].copy_from_slice(&qe_authentication_data_length);
-            output.to_vec()
+
+            // Certification data inner type
+            let certification_data_type: i16 = 5; // TODO
+            let certification_data_type = certification_data_type.to_le_bytes();
+            output[384 + 64 + 2..384 + 64 + 2 + 2].copy_from_slice(&certification_data_type);
+
+            let mut certification_data_inner = certification_data_inner_serializer(
+                &qe_report_certification_data.certification_data,
+            );
+            let certification_data_inner_len: i32 =
+                certification_data_inner.len().try_into().unwrap();
+            let certification_data_inner_len = certification_data_inner_len.to_le_bytes();
+            output[384 + 64 + 2 + 2..384 + 64 + 2 + 2 + 4]
+                .copy_from_slice(&certification_data_inner_len);
+
+            let mut output_vec = output.to_vec();
+            output_vec.append(&mut certification_data_inner);
+            if output_vec.len() != 384 + 64 + 2 + 2 + 4 + 15 {
+                panic!("Len is not {}", output_vec.len());
+            }
+            output_vec
         }
         CertificationData::PckIdPpidPlainCpusvnPcesvn(data) => data.to_vec(),
         CertificationData::PckIdPpidRSA2048CpusvnPcesvn(data) => data.to_vec(),
@@ -142,6 +165,17 @@ fn certification_data_serializer(input: &CertificationData) -> Vec<u8> {
         CertificationData::PckLeafCert(data) => data.to_vec(),
         CertificationData::PckCertChain(data) => data.to_vec(),
         CertificationData::PlatformManifest(data) => data.to_vec(),
+    }
+}
+
+fn certification_data_inner_serializer(input: &CertificationDataInner) -> Vec<u8> {
+    match input {
+        CertificationDataInner::PckIdPpidPlainCpusvnPcesvn(data) => data.to_vec(),
+        CertificationDataInner::PckIdPpidRSA2048CpusvnPcesvn(data) => data.to_vec(),
+        CertificationDataInner::PckIdPpidRSA3072CpusvnPcesvn(data) => data.to_vec(),
+        CertificationDataInner::PckLeafCert(data) => data.to_vec(),
+        CertificationDataInner::PckCertChain(data) => data.to_vec(),
+        CertificationDataInner::PlatformManifest(data) => data.to_vec(),
     }
 }
 

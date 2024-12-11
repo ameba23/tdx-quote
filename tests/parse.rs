@@ -18,6 +18,9 @@ fn test_parse() {
         file.read_to_end(&mut input).unwrap();
         let quote = Quote::from_bytes(&input).unwrap();
 
+        // Check we can get the PCK certificate chain
+        assert!(quote.pck_cert_chain().is_some());
+
         // We currently don't have any v5 quotes to test with
         assert_eq!(quote.header.version, 4);
 
@@ -47,6 +50,7 @@ fn test_create_mock_quote() {
         attestation_key.clone(),
         provisioning_certification_key.clone(),
         [0; 64],
+        b"Mock cert chain".to_vec(),
     );
     assert_eq!(quote.attestation_key, VerifyingKey::from(attestation_key));
     quote
