@@ -20,7 +20,7 @@ mod error;
 mod mock;
 mod take_n;
 
-#[cfg(feature = "x509")]
+#[cfg(feature = "pck")]
 pub mod pck;
 
 pub use error::QuoteParseError;

@@ -14,25 +14,35 @@ use x509_verify::{
 const INTEL_ROOT_CA_DER: &[u8; 659] =
     include_bytes!("Intel_SGX_Provisioning_Certification_RootCA.cer");
 
-pub fn verify_pck_certificate_chain(
-    pck_certificate_chain: Vec<Vec<u8>>,
-) -> Result<[u8; 33], PckParseVerifyError> {
-    let pck_uncompressed = verify_pck_cert_chain(pck_certificate_chain)?;
+/// Verify a PCK certificate chain against Intel root CA
+/// given as PEM certificated concatenated together.
+pub fn verify_pck_certificate_chain_pem(
+    pck_certificate_chain_pem: Vec<u8>,
+) -> Result<p256::ecdsa::VerifyingKey, PckParseVerifyError> {
+    let pems = pem::parse_many(pck_certificate_chain_pem).unwrap();
+    let ders = pems
+        .into_iter()
+        .map(|pem| pem.contents().to_vec())
+        .collect();
+    verify_pck_certificate_chain_der(ders)
+}
+
+/// Verify a PCK certificate chain against Intel root CA
+/// given as a vector of der encoded certificates
+pub fn verify_pck_certificate_chain_der(
+    pck_certificate_chain_der: Vec<Vec<u8>>,
+) -> Result<p256::ecdsa::VerifyingKey, PckParseVerifyError> {
+    let pck_uncompressed = verify_pck_cert_chain(pck_certificate_chain_der)?;
 
     // Compress / convert public key
     let point = p256::EncodedPoint::from_bytes(pck_uncompressed)
         .map_err(|_| PckParseVerifyError::BadPublicKey)?;
     let pck_verifying_key = p256::ecdsa::VerifyingKey::from_encoded_point(&point)
         .map_err(|_| PckParseVerifyError::BadPublicKey)?;
-    let pck_compressed = pck_verifying_key.to_encoded_point(true);
-    pck_compressed
-        .as_bytes()
-        .try_into()
-        .map_err(|_| PckParseVerifyError::BadPublicKey)
+    Ok(pck_verifying_key)
 }
 
 /// Validate PCK and provider certificates and if valid return the PCK
-/// These certificates will be provided by a joining validator
 fn verify_pck_cert_chain(certificates_der: Vec<Vec<u8>>) -> Result<[u8; 65], PckParseVerifyError> {
     if certificates_der.is_empty() {
         return Err(PckParseVerifyError::NoCertificate);
@@ -103,6 +113,6 @@ mod tests {
     fn test_verify_pck_cert_chain() {
         let pck = include_bytes!("../../test_pck_certs/pck_cert.der").to_vec();
         let platform = include_bytes!("../../test_pck_certs/platform_pcs_cert.der").to_vec();
-        assert!(verify_pck_certificate_chain(vec![pck, platform]).is_ok());
+        assert!(verify_pck_certificate_chain_der(vec![pck, platform]).is_ok());
     }
 }

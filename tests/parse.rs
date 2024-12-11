@@ -60,3 +60,23 @@ fn test_create_mock_quote() {
     let quote_deserialized = Quote::from_bytes(&quote_bytes).unwrap();
     assert_eq!(quote, quote_deserialized);
 }
+
+#[cfg(feature = "pck")]
+#[test]
+fn test_parse_pck() {
+    use tdx_quote::pck::verify_pck_certificate_chain_pem;
+
+    for entry in fs::read_dir("tests/test-quotes").unwrap() {
+        let entry = entry.unwrap();
+        let mut file = fs::File::open(entry.path()).unwrap();
+        let mut input = Vec::new();
+        file.read_to_end(&mut input).unwrap();
+        let quote = Quote::from_bytes(&input).unwrap();
+
+        let cert_chain_pem = quote.pck_cert_chain().unwrap();
+        let pck = verify_pck_certificate_chain_pem(cert_chain_pem).unwrap();
+
+        // let pck = VerifyingKey::from_sec1_bytes(&KNOWN_PCK).unwrap();
+        quote.verify_with_pck(pck).unwrap();
+    }
+}
