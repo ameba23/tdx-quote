@@ -1,3 +1,4 @@
+//! Parse and verify PCK certificate chains
 mod error;
 
 use alloc::vec::Vec;
@@ -14,12 +15,12 @@ use x509_verify::{
 const INTEL_ROOT_CA_DER: &[u8; 659] =
     include_bytes!("Intel_SGX_Provisioning_Certification_RootCA.cer");
 
-/// Verify a PCK certificate chain against Intel root CA
-/// given as PEM certificated concatenated together.
+/// Verify a PCK certificate chain against Intel root CA given as PEM certificated concatenated together.
+/// This is the format in which it is extracted from the quote
 pub fn verify_pck_certificate_chain_pem(
     pck_certificate_chain_pem: Vec<u8>,
 ) -> Result<p256::ecdsa::VerifyingKey, PckParseVerifyError> {
-    let pems = pem::parse_many(pck_certificate_chain_pem).unwrap();
+    let pems = pem::parse_many(pck_certificate_chain_pem)?;
     let ders = pems
         .into_iter()
         .map(|pem| pem.contents().to_vec())
@@ -27,8 +28,7 @@ pub fn verify_pck_certificate_chain_pem(
     verify_pck_certificate_chain_der(ders)
 }
 
-/// Verify a PCK certificate chain against Intel root CA
-/// given as a vector of der encoded certificates
+/// Verify a PCK certificate chain against Intel root CA given as a vector of der encoded certificates
 pub fn verify_pck_certificate_chain_der(
     pck_certificate_chain_der: Vec<Vec<u8>>,
 ) -> Result<p256::ecdsa::VerifyingKey, PckParseVerifyError> {

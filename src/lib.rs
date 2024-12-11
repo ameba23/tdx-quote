@@ -11,6 +11,8 @@
 //! The `mock` feature flag allows generating mock quotes, which this library can parse and verify. This
 //! is used for testing attestation features on without needing TDX hardware.
 //!
+//! The `pck` feature flag (enabled by default) allows parsing and verifying PCK certificate chains.
+//!
 //! Warning: This is in early stages of development and has not been audited.
 //!
 //! For quote generation, see [`configfs-tsm`](https://crates.io/crates/configfs-tsm).
