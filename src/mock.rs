@@ -154,9 +154,6 @@ fn certification_data_serializer(input: &CertificationData) -> Vec<u8> {
 
             let mut output_vec = output.to_vec();
             output_vec.append(&mut certification_data_inner);
-            if output_vec.len() != 384 + 64 + 2 + 2 + 4 + 15 {
-                panic!("Len is not {}", output_vec.len());
-            }
             output_vec
         }
         CertificationData::PckIdPpidPlainCpusvnPcesvn(data) => data.to_vec(),
