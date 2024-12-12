@@ -25,8 +25,8 @@ mod take_n;
 #[cfg(feature = "pck")]
 pub mod pck;
 
-pub use error::QuoteParseError;
-use error::{QuoteVerificationError, VerifyingKeyError};
+use error::QuoteVerificationError;
+pub use error::{QuoteParseError, VerifyingKeyError};
 use p256::EncodedPoint;
 use take_n::{take16, take2, take20, take384, take48, take64, take8};
 
