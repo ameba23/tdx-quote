@@ -135,7 +135,7 @@ impl Quote {
     }
 
     /// Attempt to verify the report with a given provisioning certification key (PCK)
-    pub fn verify_with_pck(&self, pck: VerifyingKey) -> Result<(), QuoteVerificationError> {
+    pub fn verify_with_pck(&self, pck: &VerifyingKey) -> Result<(), QuoteVerificationError> {
         let qe_report_certification_data = self
             .qe_report_certification_data()
             .ok_or(QuoteVerificationError::NoQeReportCertificationData)?;
@@ -170,7 +170,7 @@ impl Quote {
         let cert_chain = self.pck_cert_chain()?;
         let pck = pck::verify_pck_certificate_chain_pem(cert_chain)?;
 
-        self.verify_with_pck(pck)?;
+        self.verify_with_pck(&pck)?;
         Ok(pck)
     }
 }

@@ -27,7 +27,7 @@ fn test_parse() {
         // We have one quote for which the PCK is unknown, but we still want to test that it parses
         if entry.file_name().to_str().unwrap().starts_with("known_pck") {
             let pck = VerifyingKey::from_sec1_bytes(&KNOWN_PCK).unwrap();
-            quote.verify_with_pck(pck).unwrap();
+            quote.verify_with_pck(&pck).unwrap();
         }
 
         // Fails to verify signature if the input data changes
