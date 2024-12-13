@@ -118,6 +118,26 @@ impl Quote {
         self.body.mrtd
     }
 
+    /// Returns run-time measurement register 0
+    pub fn rtmr0(&self) -> [u8; 48] {
+        self.body.rtmr0
+    }
+
+    /// Returns run-time measurement register 1
+    pub fn rtmr1(&self) -> [u8; 48] {
+        self.body.rtmr1
+    }
+
+    /// Returns run-time measurement register 2
+    pub fn rtmr2(&self) -> [u8; 48] {
+        self.body.rtmr2
+    }
+
+    /// Returns run-time measurement register 3
+    pub fn rtmr3(&self) -> [u8; 48] {
+        self.body.rtmr3
+    }
+
     /// Returns the QeReportCertificationData if present
     pub fn qe_report_certification_data(&self) -> Option<QeReportCertificationData> {
         if let CertificationData::QeReportCertificationData(qe_report_certification_data) =
