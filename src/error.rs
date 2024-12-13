@@ -1,5 +1,8 @@
-use core::fmt::{self, Display};
-use core::num::TryFromIntError;
+use core::{
+    error::Error,
+    fmt::{self, Display},
+    num::TryFromIntError,
+};
 
 /// An error when parsing a quote
 #[derive(Debug, Eq, PartialEq)]
@@ -113,5 +116,11 @@ impl Display for VerifyingKeyError {
             }
             VerifyingKeyError::BadSize => f.write_str("Compressed point has unexpected size"),
         }
+    }
+}
+
+impl Error for VerifyingKeyError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        None
     }
 }
