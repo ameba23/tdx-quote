@@ -11,6 +11,8 @@
 //! The `mock` feature flag allows generating mock quotes, which this library can parse and verify. This
 //! is used for testing attestation features on without needing TDX hardware.
 //!
+//! The `pck` feature flag (enabled by default) allows parsing and verifying PCK certificate chains.
+//!
 //! Warning: This is in early stages of development and has not been audited.
 //!
 //! For quote generation, see [`configfs-tsm`](https://crates.io/crates/configfs-tsm).
@@ -20,8 +22,11 @@ mod error;
 mod mock;
 mod take_n;
 
-pub use error::QuoteParseError;
-use error::{QuoteVerificationError, VerifyingKeyError};
+#[cfg(feature = "pck")]
+pub mod pck;
+
+use error::QuoteVerificationError;
+pub use error::{QuoteParseError, VerifyingKeyError};
 use p256::EncodedPoint;
 use take_n::{take16, take2, take20, take384, take48, take64, take8};
 
@@ -150,7 +155,7 @@ impl Quote {
     }
 
     /// Attempt to verify the report with a given provisioning certification key (PCK)
-    pub fn verify_with_pck(&self, pck: VerifyingKey) -> Result<(), QuoteVerificationError> {
+    pub fn verify_with_pck(&self, pck: &VerifyingKey) -> Result<(), QuoteVerificationError> {
         let qe_report_certification_data = self
             .qe_report_certification_data()
             .ok_or(QuoteVerificationError::NoQeReportCertificationData)?;
@@ -163,20 +168,30 @@ impl Quote {
 
     /// Return the pem-encoded PCK cert chain if present
     /// Parsing the certificates themselves is outside of the scope of this crate
-    pub fn pck_cert_chain(&self) -> Option<Vec<u8>> {
+    pub fn pck_cert_chain(&self) -> Result<Vec<u8>, QuoteVerificationError> {
         match &self.certification_data {
-            CertificationData::PckCertChain(cert_chain) => Some(cert_chain.clone()),
+            CertificationData::PckCertChain(cert_chain) => Ok(cert_chain.clone()),
             CertificationData::QeReportCertificationData(qe_report_certification_data) => {
                 if let CertificationDataInner::PckCertChain(cert_chain) =
                     &qe_report_certification_data.certification_data
                 {
-                    Some(cert_chain.clone())
+                    Ok(cert_chain.clone())
                 } else {
-                    None
+                    Err(QuoteVerificationError::NoPckCertChain)
                 }
             }
-            _ => None,
+            _ => Err(QuoteVerificationError::NoPckCertChain),
         }
+    }
+
+    /// Verify the quote using the embedded PCK certificate chain, and if successful return the PCK
+    #[cfg(feature = "pck")]
+    pub fn verify(&self) -> Result<VerifyingKey, QuoteVerificationError> {
+        let cert_chain = self.pck_cert_chain()?;
+        let pck = pck::verify_pck_certificate_chain_pem(cert_chain)?;
+
+        self.verify_with_pck(&pck)?;
+        Ok(pck)
     }
 }
 

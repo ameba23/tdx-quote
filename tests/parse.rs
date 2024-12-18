@@ -19,7 +19,7 @@ fn test_parse() {
         let quote = Quote::from_bytes(&input).unwrap();
 
         // Check we can get the PCK certificate chain
-        assert!(quote.pck_cert_chain().is_some());
+        assert!(quote.pck_cert_chain().is_ok());
 
         // We currently don't have any v5 quotes to test with
         assert_eq!(quote.header.version, 4);
@@ -27,7 +27,7 @@ fn test_parse() {
         // We have one quote for which the PCK is unknown, but we still want to test that it parses
         if entry.file_name().to_str().unwrap().starts_with("known_pck") {
             let pck = VerifyingKey::from_sec1_bytes(&KNOWN_PCK).unwrap();
-            quote.verify_with_pck(pck).unwrap();
+            quote.verify_with_pck(&pck).unwrap();
         }
 
         // Fails to verify signature if the input data changes
@@ -59,4 +59,17 @@ fn test_create_mock_quote() {
     let quote_bytes = quote.as_bytes();
     let quote_deserialized = Quote::from_bytes(&quote_bytes).unwrap();
     assert_eq!(quote, quote_deserialized);
+}
+
+#[cfg(feature = "pck")]
+#[test]
+fn test_parse_pck() {
+    for entry in fs::read_dir("tests/test-quotes").unwrap() {
+        let entry = entry.unwrap();
+        let mut file = fs::File::open(entry.path()).unwrap();
+        let mut input = Vec::new();
+        file.read_to_end(&mut input).unwrap();
+        let quote = Quote::from_bytes(&input).unwrap();
+        let _pck = quote.verify().unwrap();
+    }
 }
