@@ -54,6 +54,8 @@ impl From<TryFromIntError> for QuoteParseError {
     }
 }
 
+impl Error for QuoteParseError {}
+
 /// An error when verifying a quote with a provisioning certification key (PCK)
 #[derive(Debug, Eq, PartialEq)]
 pub enum QuoteVerificationError {
@@ -96,6 +98,8 @@ impl From<crate::pck::PckParseVerifyError> for QuoteVerificationError {
         QuoteVerificationError::PckParseVerify(error)
     }
 }
+
+impl Error for QuoteVerificationError {}
 
 /// An error when handling a verifying key
 #[derive(Debug, Eq, PartialEq)]
