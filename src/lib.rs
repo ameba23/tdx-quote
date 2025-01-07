@@ -31,7 +31,7 @@ use p256::EncodedPoint;
 use take_n::{take16, take2, take20, take384, take48, take64, take8};
 
 extern crate alloc;
-use alloc::vec::Vec;
+use alloc::{boxed::Box, vec::Vec};
 
 use nom::{
     bytes::complete::take,
@@ -148,7 +148,7 @@ impl Quote {
         if let CertificationData::QeReportCertificationData(qe_report_certification_data) =
             &self.certification_data
         {
-            Some(qe_report_certification_data.clone())
+            Some(*qe_report_certification_data.clone())
         } else {
             None
         }
@@ -312,7 +312,7 @@ pub enum CertificationData {
     PckIdPpidRSA3072CpusvnPcesvn(Vec<u8>) = 3,
     PckLeafCert(Vec<u8>) = 4,
     PckCertChain(Vec<u8>) = 5,
-    QeReportCertificationData(QeReportCertificationData) = 6,
+    QeReportCertificationData(Box<QeReportCertificationData>) = 6,
     PlatformManifest(Vec<u8>) = 7,
 }
 
@@ -328,9 +328,9 @@ impl CertificationData {
             3 => Ok(Self::PckIdPpidRSA3072CpusvnPcesvn(data)),
             4 => Ok(Self::PckLeafCert(data)),
             5 => Ok(Self::PckCertChain(data)),
-            6 => Ok(Self::QeReportCertificationData(
+            6 => Ok(Self::QeReportCertificationData(Box::new(
                 QeReportCertificationData::new(data, attestation_key)?,
-            )),
+            ))),
             7 => Ok(Self::PlatformManifest(data)),
             _ => Err(QuoteParseError::UnknownCertificationDataType),
         }
@@ -388,7 +388,7 @@ impl QeReportCertificationData {
         // data, followed by 32 null bytes (which we ignore)
         let expected_hash = &qe_report[384 - 64..384 - 32];
 
-        let (input, signature) = take64(&input)?;
+        let (input, signature) = take64(input)?;
         let signature = Signature::from_bytes((&signature).into())?;
         let (input, qe_authentication_data_size) = le_i16(input)?;
         let qe_authentication_data_size: usize = qe_authentication_data_size.try_into()?;
@@ -406,7 +406,7 @@ impl QeReportCertificationData {
         let hash = {
             let mut hasher = Sha256::new();
             hasher.update(&attestation_key);
-            hasher.update(&qe_authentication_data);
+            hasher.update(qe_authentication_data);
             hasher.finalize()
         };
         if hash[..] != *expected_hash {
@@ -424,11 +424,11 @@ impl QeReportCertificationData {
 
 /// Helper function to encode a public key as bytes
 pub fn encode_verifying_key(input: &VerifyingKey) -> Result<[u8; 33], VerifyingKeyError> {
-    Ok(input
+    input
         .to_encoded_point(true)
         .as_bytes()
         .try_into()
-        .map_err(|_| VerifyingKeyError::BadSize)?)
+        .map_err(|_| VerifyingKeyError::BadSize)
 }
 
 /// Helper function to decode bytes to a public key
