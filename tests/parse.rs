@@ -54,7 +54,7 @@ fn test_create_mock_quote() {
     );
     assert_eq!(quote.attestation_key, VerifyingKey::from(attestation_key));
     quote
-        .verify_with_pck(VerifyingKey::from(provisioning_certification_key))
+        .verify_with_pck(&VerifyingKey::from(provisioning_certification_key))
         .unwrap();
     let quote_bytes = quote.as_bytes();
     let quote_deserialized = Quote::from_bytes(&quote_bytes).unwrap();

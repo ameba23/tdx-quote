@@ -5,7 +5,7 @@ use crate::{
     AttestionKeyType, CertificationData, CertificationDataInner, QeReportCertificationData, Quote,
     QuoteBody, QuoteHeader, TDXVersion, TEEType, QUOTE_HEADER_LENGTH, V4_QUOTE_BODY_LENGTH,
 };
-use alloc::vec::Vec;
+use alloc::{boxed::Box, vec::Vec};
 use p256::ecdsa::{signature::SignerMut, SigningKey, VerifyingKey};
 use sha2::{Digest, Sha256};
 
@@ -82,9 +82,9 @@ impl Quote {
             body,
             attestation_key: VerifyingKey::from(&attestation_key),
             signature,
-            certification_data: CertificationData::QeReportCertificationData(
+            certification_data: CertificationData::QeReportCertificationData(Box::new(
                 qe_report_cerification_data,
-            ),
+            )),
         }
     }
 
