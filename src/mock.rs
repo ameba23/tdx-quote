@@ -96,8 +96,10 @@ impl Quote {
         let body = quote_body_v4_serializer(&self.body);
         output[48..632].copy_from_slice(&body);
 
-        // TODO #5 get actual signature section length
-        let signature_section_length = 0i32;
+        let mut certification_data = certification_data_serializer(&self.certification_data);
+        let certification_data_len: i32 = certification_data.len().try_into().unwrap();
+
+        let signature_section_length: i32 = 64 + 64 + 2 + certification_data_len;
         let signature_section_length = signature_section_length.to_le_bytes();
         output[632..636].copy_from_slice(&signature_section_length);
 
@@ -113,8 +115,6 @@ impl Quote {
         let certification_data_type = certification_data_type.to_le_bytes();
         output[764..766].copy_from_slice(&certification_data_type);
 
-        let mut certification_data = certification_data_serializer(&self.certification_data);
-        let certification_data_len: i32 = certification_data.len().try_into().unwrap();
         let certification_data_len = certification_data_len.to_le_bytes();
         output[766..770].copy_from_slice(&certification_data_len);
 
